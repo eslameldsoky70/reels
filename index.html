@@ -3884,27 +3884,19 @@
         if (btnEl) btnEl.classList.add("on");
         const list = $("hadithList");
         list.innerHTML = '<div style="text-align:center;color:#c9973a;padding:20px">⏳ جارٍ التحميل...</div>';
-        // AhmedBaset/hadith-json — أكثر موثوقية وفيه عربي واضح
-        const BOOK_MAP = {
-          "ara-bukhari":  "bukhari",
-          "ara-muslim":   "muslim",
-          "ara-abudawud": "abu_dawud",
-          "ara-ibnmajah": "ibn_majah",
-          "ara-tirmidhi": "tirmidhi",
-        };
-        const bookName = BOOK_MAP[bookKey] || "bukhari";
-        // نجيب أول chapter من الكتاب
-        const url = `https://cdn.jsdelivr.net/gh/AhmedBaset/hadith-json@main/db/by_chapter/the_9_books/${bookName}/1.json`;
+        // fawazahmed0 API — نجيب أول 3 sections ونجمعهم
+        const base = `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}`;
         try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          // data هو array من الأحاديث { id, arabic, english: {narrator, text} }
-          allHadiths = Array.isArray(data) ? data : (data.hadiths || []);
+          const results = await Promise.all([
+            fetch(`${base}/sections/1.min.json`).then(r => r.ok ? r.json() : {hadiths:[]}),
+            fetch(`${base}/sections/2.min.json`).then(r => r.ok ? r.json() : {hadiths:[]}),
+            fetch(`${base}/sections/3.min.json`).then(r => r.ok ? r.json() : {hadiths:[]}),
+          ]);
+          allHadiths = results.flatMap(d => d.hadiths || []).filter(h => h && h.text);
           if (!allHadiths.length) throw new Error("لا توجد أحاديث");
           renderHadithList(allHadiths);
         } catch(e) {
-          list.innerHTML = `<div style="text-align:center;color:#f47c7c;padding:20px">❌ فشل التحميل<br><small style="color:#6e8878">${e.message}</small></div>`;
+          list.innerHTML = `<div style="text-align:center;color:#f47c7c;padding:20px">❌ فشل التحميل: ${e.message}</div>`;
         }
       }
 
@@ -3915,7 +3907,7 @@
           return;
         }
         list.innerHTML = hadiths.map((h, i) => {
-          const text = (h.arabic || h.text || "").trim();
+          const text = (h.text || h.arabic || "").trim();
           if (!text) return "";
           const short = text.length > 120 ? text.slice(0, 120) + "..." : text;
           const num = h.id || h.hadithnumber || (i + 1);
@@ -3935,12 +3927,12 @@
       }
 
       function selectHadith(num) {
-        const h = allHadiths.find(x => (x.id || x.hadithnumber) === num);
+        const h = allHadiths.find(x => (x.hadithnumber || x.id) === num);
         if (!h) return;
         document.querySelectorAll("#hadithList .s-item").forEach(el => el.classList.remove("on"));
         const el = $("hitem-" + num);
         if (el) { el.classList.add("on"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); }
-        const text = (h.arabic || h.text || "").trim();
+        const text = (h.text || h.arabic || "").trim();
         const ref = "﴾ " + HADITH_BOOKS[currentHadithBook] + " — رقم " + num + " ﴿";
         if ($("vRef")) $("vRef").textContent = ref;
         verseChunks = splitIntoChunks(text);

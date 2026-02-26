@@ -3884,30 +3884,25 @@
         if (btnEl) btnEl.classList.add("on");
         const list = $("hadithList");
         list.innerHTML = '<div style="text-align:center;color:#c9973a;padding:20px">⏳ جارٍ التحميل...</div>';
-        // جرب عدة روابط مختلفة للـ API
-        const urlsToTry = [
-          `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}/sections/1.min.json`,
-          `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}/sections/1.json`,
-          `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}.min.json`,
-          `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}.json`,
-        ];
-        let hadiths = [];
-        for (const url of urlsToTry) {
-          try {
-            const res = await fetch(url);
-            if (!res.ok) continue;
-            const data = await res.json();
-            // جرب كل الـ structures الممكنة
-            hadiths = data.hadiths || data.section?.hadiths || [];
-            if (hadiths.length) break;
-          } catch(e) { continue; }
+        try {
+          // نجيب الأحاديث من 1 لـ 50 كل واحد على حدة
+          const promises = [];
+          for (let i = 1; i <= 50; i++) {
+            promises.push(
+              fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}/${i}.min.json`)
+                .then(r => r.ok ? r.json() : null)
+                .catch(() => null)
+            );
+          }
+          const results = await Promise.all(promises);
+          allHadiths = results
+            .filter(d => d && d.hadithnumber && d.text)
+            .map(d => ({ hadithnumber: d.hadithnumber, text: d.text }));
+          if (!allHadiths.length) throw new Error("لا توجد أحاديث");
+          renderHadithList(allHadiths);
+        } catch(e) {
+          list.innerHTML = `<div style="text-align:center;color:#f47c7c;padding:20px">❌ فشل التحميل<br><small style="color:#6e8878">${e.message}</small></div>`;
         }
-        if (!hadiths.length) {
-          list.innerHTML = '<div style="text-align:center;color:#f47c7c;padding:20px">❌ فشل التحميل — تحقق من الإنترنت</div>';
-          return;
-        }
-        allHadiths = hadiths.slice(0, 100);
-        renderHadithList(allHadiths);
       }
 
       function renderHadithList(hadiths) {

@@ -3884,14 +3884,23 @@
         if (btnEl) btnEl.classList.add("on");
         const list = $("hadithList");
         list.innerHTML = '<div style="text-align:center;color:#c9973a;padding:20px">⏳ جارٍ التحميل...</div>';
+        // AhmedBaset/hadith-json — أكثر موثوقية وفيه عربي واضح
+        const BOOK_MAP = {
+          "ara-bukhari":  "bukhari",
+          "ara-muslim":   "muslim",
+          "ara-abudawud": "abu_dawud",
+          "ara-ibnmajah": "ibn_majah",
+          "ara-tirmidhi": "tirmidhi",
+        };
+        const bookName = BOOK_MAP[bookKey] || "bukhari";
+        // نجيب أول chapter من الكتاب
+        const url = `https://cdn.jsdelivr.net/gh/AhmedBaset/hadith-json@main/db/by_chapter/the_9_books/${bookName}/1.json`;
         try {
-          // نجيب الكتاب كامل — الـ API بيرجع { hadiths: [{hadithnumber, text}, ...] }
-          const url = `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}.min.json`;
           const res = await fetch(url);
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
-          // البيانات في data.hadiths
-          allHadiths = (data.hadiths || []).slice(0, 50);
+          // data هو array من الأحاديث { id, arabic, english: {narrator, text} }
+          allHadiths = Array.isArray(data) ? data : (data.hadiths || []);
           if (!allHadiths.length) throw new Error("لا توجد أحاديث");
           renderHadithList(allHadiths);
         } catch(e) {
@@ -3899,17 +3908,17 @@
         }
       }
 
-      function renderHadithList(hadiths) {
+            function renderHadithList(hadiths) {
         const list = $("hadithList");
         if (!hadiths || !hadiths.length) {
           list.innerHTML = '<div style="text-align:center;color:#6e8878;padding:20px">لا توجد نتائج</div>';
           return;
         }
-        list.innerHTML = hadiths.map(h => {
-          const text = (h.text || "").trim();
+        list.innerHTML = hadiths.map((h, i) => {
+          const text = (h.arabic || h.text || "").trim();
           if (!text) return "";
           const short = text.length > 120 ? text.slice(0, 120) + "..." : text;
-          const num = h.hadithnumber || 0;
+          const num = h.id || h.hadithnumber || (i + 1);
           return `<div class="s-item" onclick="selectHadith(${num})" id="hitem-${num}">
             <div class="s-num" style="font-size:8px;min-width:24px;flex-shrink:0">${num}</div>
             <div style="flex:1;min-width:0">
@@ -3922,16 +3931,16 @@
 
       function searchHadith(q) {
         if (!q.trim()) { renderHadithList(allHadiths); return; }
-        renderHadithList(allHadiths.filter(h => (h.text || "").includes(q)));
+        renderHadithList(allHadiths.filter(h => (h.arabic || h.text || "").includes(q)));
       }
 
       function selectHadith(num) {
-        const h = allHadiths.find(x => x.hadithnumber === num);
+        const h = allHadiths.find(x => (x.id || x.hadithnumber) === num);
         if (!h) return;
         document.querySelectorAll("#hadithList .s-item").forEach(el => el.classList.remove("on"));
         const el = $("hitem-" + num);
         if (el) { el.classList.add("on"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); }
-        const text = (h.text || "").trim();
+        const text = (h.arabic || h.text || "").trim();
         const ref = "﴾ " + HADITH_BOOKS[currentHadithBook] + " — رقم " + num + " ﴿";
         if ($("vRef")) $("vRef").textContent = ref;
         verseChunks = splitIntoChunks(text);

@@ -3885,19 +3885,13 @@
         const list = $("hadithList");
         list.innerHTML = '<div style="text-align:center;color:#c9973a;padding:20px">⏳ جارٍ التحميل...</div>';
         try {
-          // نجيب الأحاديث من 1 لـ 50 كل واحد على حدة
-          const promises = [];
-          for (let i = 1; i <= 50; i++) {
-            promises.push(
-              fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}/${i}.min.json`)
-                .then(r => r.ok ? r.json() : null)
-                .catch(() => null)
-            );
-          }
-          const results = await Promise.all(promises);
-          allHadiths = results
-            .filter(d => d && d.hadithnumber && d.text)
-            .map(d => ({ hadithnumber: d.hadithnumber, text: d.text }));
+          // نجيب الكتاب كامل — الـ API بيرجع { hadiths: [{hadithnumber, text}, ...] }
+          const url = `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/${bookKey}.min.json`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          // البيانات في data.hadiths
+          allHadiths = (data.hadiths || []).slice(0, 50);
           if (!allHadiths.length) throw new Error("لا توجد أحاديث");
           renderHadithList(allHadiths);
         } catch(e) {
